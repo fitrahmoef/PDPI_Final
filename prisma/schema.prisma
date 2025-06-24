@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(BRANCH_ADMIN)
+  branch        String?
+  phone         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Relationship with members if user is branch admin
+  managedMembers Member[] @relation("BranchAdminMembers")
+  
+  // Activity logs
+  activities    ActivityLog[]
+  
+  @@map("users")
+}
+
+model Member {
+  id                String         @id @default(cuid())
+  npa               String         @unique // Nomor Pokok Anggota
+  gelarDepan        String?
+  namaLengkap       String
+  gelarBelakang     String?
+  jenisKelamin      Gender
+  tempatLahir       String
+  tanggalLahir      DateTime
+  agama             String?
+  statusPerkawinan  String?
+  alamatRumah       String
+  kota              String
+  provinsi          String
+  nomorHP           String
+  email             String
+  nik               String?
+  npwp              String?
+  
+  // PDPI specific fields
+  alumni            String
+  bulanTahunLulus   String
+  statusAnggota     MemberStatus   @default(BIASA)
+  cabang            String
+  statusKeanggotaan MembershipStatus @default(AKTIF)
+  tanggalBergabung  DateTime       @default(now())
+  
+  // Profile photo
+  fotoProfile       String?
+  
+  // Timestamps
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  // Relationships
+  tempatPraktik     TempatPraktik[]
+  branchAdmin       User?          @relation("BranchAdminMembers", fields: [branchAdminId], references: [id])
+  branchAdminId     String?
+  
+  @@map("members")
+}
+
+model TempatPraktik {
+  id          String @id @default(cuid())
+  namaRS      String
+  kota        String
+  provinsi    String
+  memberId    String
+  member      Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  
+  @@map("tempat_praktik")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  description String
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("activity_logs")
+}
+
+model Settings {
+  id              String   @id @default(cuid())
+  organizationName String  @default("Perhimpunan Dokter Paru Indonesia")
+  contactEmail    String   @default("info@pdpi.org")
+  sessionTimeout  Int      @default(30) // in minutes
+  backupFrequency String   @default("daily")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("settings")
+}
+
+// Enums
+enum UserRole {
+  CENTRAL_ADMIN
+  BRANCH_ADMIN
+  MEMBER
+}
+
+enum Gender {
+  L // Laki-laki
+  P // Perempuan
+}
+
+enum MemberStatus {
+  BIASA
+  MUDA
+  LUAR_BIASA
+}
+
+enum MembershipStatus {
+  AKTIF
+  NON_AKTIF
+  MENINGGAL_DUNIA
+}
+
+""//admin_control {
+    identity {
+        Komisaris Dokter
+        Kepala Ruangan
+        Kepala Operasional
+        Manager Pimpinan
+    }
+    admin_branch{
+        admin_riau
+        admin_aceh
+        admin_surabaya
+        nontif_perseroan
+    }
+
+}
+""//""
